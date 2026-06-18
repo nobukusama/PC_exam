@@ -371,57 +371,109 @@ function saveExplanationEdits(edits) {
   }
 }
 
-// 自分で編集した解説をファイルに書き出す（端末間で移すため）
-function exportExplanationEdits() {
+// 2つの履歴（端末ごと）を統合する。問題ごとに試行を結合・重複除去・時刻順・最新80件。
+function mergeHistories(current, incoming) {
+  const merged = { ...current };
+  for (const [qid, attempts] of Object.entries(incoming)) {
+    if (!Array.isArray(attempts)) {
+      continue;
+    }
+    const existing = Array.isArray(merged[qid]) ? merged[qid] : [];
+    const combined = [...existing, ...attempts];
+    const seen = new Set();
+    const unique = [];
+    for (const attempt of combined) {
+      if (!attempt || typeof attempt !== "object") {
+        continue;
+      }
+      const key = JSON.stringify([attempt.at, attempt.correct, attempt.selectedIds]);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(attempt);
+      }
+    }
+    unique.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+    merged[qid] = unique.slice(-80);
+  }
+  return merged;
+}
+
+// 学習データ（履歴・解説メモ・学習日）をまとめてファイルに書き出す（端末間で移すため）
+function exportBackup() {
+  const data = {};
+  const history = loadHistory();
   const edits = loadExplanationEdits();
-  const count = Object.keys(edits).length;
-  if (count === 0) {
-    window.alert("書き出す編集がありません。先に解説を編集して保存してください。");
+  const meta = loadStudyMeta();
+  if (Object.keys(history).length) {
+    data[HISTORY_KEY] = history;
+  }
+  if (Object.keys(edits).length) {
+    data[EXPLANATION_EDITS_KEY] = edits;
+  }
+  if (Object.keys(meta).length) {
+    data[STUDY_META_KEY] = meta;
+  }
+  if (Object.keys(data).length === 0) {
+    window.alert("書き出すデータがありません。問題を解いたり解説を編集してからお試しください。");
     return;
   }
   const payload = {
-    type: "painClinicExplanationEdits",
+    type: "painClinicBackup",
     version: 1,
     exportedAt: new Date().toISOString(),
-    edits,
+    data,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   link.href = url;
-  link.download = `explanation-edits-${stamp}.json`;
+  link.download = `study-backup-${stamp}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
 
-// ファイルから編集を読み込む（既存の編集に上書きマージ）
-function importExplanationEdits(file) {
+// ファイルから学習データを読み込む（履歴は統合、解説メモ・学習日はマージ）
+function importBackup(file) {
   const reader = new FileReader();
   reader.onload = () => {
-    let incoming = null;
+    let bundle = null;
     try {
-      const data = JSON.parse(String(reader.result));
-      if (data && data.edits && typeof data.edits === "object") {
-        incoming = data.edits;
-      } else if (data && typeof data === "object") {
-        incoming = data;
+      const parsed = JSON.parse(String(reader.result));
+      if (parsed && parsed.data && typeof parsed.data === "object") {
+        bundle = parsed.data; // 新形式（統合バックアップ）
+      } else if (parsed && parsed.edits && typeof parsed.edits === "object") {
+        bundle = { [EXPLANATION_EDITS_KEY]: parsed.edits }; // 旧・解説のみ形式
       }
     } catch {
       window.alert("ファイルを読み込めませんでした。書き出したJSONファイルか確認してください。");
       return;
     }
-    if (!incoming || typeof incoming !== "object") {
+    if (!bundle || typeof bundle !== "object") {
       window.alert("ファイルの形式が正しくありません。");
       return;
     }
-    const current = loadExplanationEdits();
-    const merged = { ...current, ...incoming };
-    saveExplanationEdits(merged);
-    const added = Object.keys(incoming).length;
-    window.alert(`${added}件の編集を読み込みました。問題を開くと反映されます。`);
+    const loaded = [];
+    if (bundle[HISTORY_KEY] && typeof bundle[HISTORY_KEY] === "object") {
+      saveHistory(mergeHistories(loadHistory(), bundle[HISTORY_KEY]));
+      loaded.push("学習履歴");
+    }
+    if (bundle[EXPLANATION_EDITS_KEY] && typeof bundle[EXPLANATION_EDITS_KEY] === "object") {
+      saveExplanationEdits({ ...loadExplanationEdits(), ...bundle[EXPLANATION_EDITS_KEY] });
+      loaded.push("解説メモ");
+    }
+    if (bundle[STUDY_META_KEY] && typeof bundle[STUDY_META_KEY] === "object") {
+      saveStudyMeta({ ...loadStudyMeta(), ...bundle[STUDY_META_KEY] });
+      loaded.push("学習日");
+    }
+    if (loaded.length === 0) {
+      window.alert("読み込めるデータが見つかりませんでした。");
+      return;
+    }
+    renderHistorySummary();
+    window.alert(`${loaded.join("・")}を読み込みました。`);
   };
   reader.onerror = () => {
     window.alert("ファイルの読み込み中にエラーが発生しました。");
@@ -1108,7 +1160,7 @@ els.historyBackButton.addEventListener("click", () => {
 });
 
 els.exportEditsButton.addEventListener("click", () => {
-  exportExplanationEdits();
+  exportBackup();
 });
 
 els.importEditsButton.addEventListener("click", () => {
@@ -1118,7 +1170,7 @@ els.importEditsButton.addEventListener("click", () => {
 els.importEditsInput.addEventListener("change", (event) => {
   const file = event.target.files && event.target.files[0];
   if (file) {
-    importExplanationEdits(file);
+    importBackup(file);
   }
   event.target.value = "";
 });
