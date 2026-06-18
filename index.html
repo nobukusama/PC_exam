@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#d9f0ee" />
+    <title>ペインクリニック専門医試験 対策</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">JSPC Specialist Exam</p>
+          <h1>ペインクリニック専門医試験 対策</h1>
+        </div>
+        <div class="dataset-badge" id="datasetBadge">読み込み中</div>
+      </header>
+
+      <main>
+        <section id="setupView" class="view setup-view" aria-labelledby="setupTitle">
+          <div class="exam-countdown" id="examCountdown" aria-live="polite">
+            <div>
+              <p class="eyebrow">Exam Day</p>
+              <strong id="examCountdownText">試験日まであと--日</strong>
+            </div>
+            <span>2027年1月9日</span>
+          </div>
+
+          <div class="study-warning hidden" id="studyWarning" aria-live="polite">
+            <div class="mentor-avatar" aria-hidden="true">
+              <span class="mentor-face"></span>
+              <span class="mentor-beard"></span>
+            </div>
+            <div>
+              <p class="mentor-label">仙人からの注意</p>
+              <p class="mentor-message">いままで何しておった！！　毎日コツコツ勉強せんか！！</p>
+            </div>
+          </div>
+
+          <div class="setup-grid">
+            <div class="panel setup-panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Question Set</p>
+                <h2 id="setupTitle">出題設定</h2>
+              </div>
+
+              <form id="setupForm" class="settings-form">
+                <fieldset>
+                  <legend>年度</legend>
+                  <div class="checkbox-row" id="yearFilters"></div>
+                </fieldset>
+
+                <fieldset>
+                  <legend>サイクル</legend>
+                  <div class="segmented cycle-options" id="cycleInfo" role="radiogroup" aria-label="1サイクルの出題数">
+                    <label>
+                      <input type="radio" name="cycleCount" value="1" />
+                      <span>1問</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="cycleCount" value="5" checked />
+                      <span>5問</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="cycleCount" value="10" />
+                      <span>10問</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="cycleCount" value="30" />
+                      <span>30問</span>
+                    </label>
+                  </div>
+                </fieldset>
+
+                <fieldset>
+                  <legend>出題順</legend>
+                  <div class="segmented" role="radiogroup" aria-label="出題順">
+                    <label>
+                      <input type="radio" name="order" value="number" checked />
+                      <span>問題番号順</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="order" value="random" />
+                      <span>年度内ランダム</span>
+                    </label>
+                  </div>
+                </fieldset>
+
+                <button class="primary-action" type="submit">開始</button>
+              </form>
+            </div>
+
+            <div class="panel stats-panel">
+              <div class="stat-block">
+                <span class="stat-value" id="totalQuestionCount">90</span>
+                <span class="stat-label">多肢選択問題</span>
+              </div>
+              <div class="year-summary" id="yearSummary"></div>
+              <div class="note">
+                <strong>公式PDF準拠</strong>
+                <span>不適切問題は全員正解扱いで採点します。</span>
+              </div>
+              <div class="practice-panel">
+                <div>
+                  <strong>学習履歴</strong>
+                  <span id="historySummary">履歴なし</span>
+                </div>
+                <button class="secondary-action" type="button" id="historyButton">履歴を見る</button>
+                <button class="primary-action" type="button" id="mistakeTrainingButton">直前特訓</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="quizView" class="view quiz-view hidden" aria-live="polite">
+          <div class="quiz-toolbar">
+            <button class="ghost-button" type="button" id="exitQuizButton">終了</button>
+            <div class="progress-wrap" aria-label="進捗">
+              <div class="progress-meta">
+                <span id="progressLabel">1 / 10</span>
+                <span id="questionOrigin">2025年 第1問</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-bar" id="progressBar"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel question-panel">
+            <div class="question-header">
+              <p class="eyebrow" id="selectionHint">2個選択</p>
+              <h2 id="questionPrompt"></h2>
+            </div>
+            <div id="choiceList" class="choice-list"></div>
+            <p id="validationMessage" class="validation-message" role="alert"></p>
+          </div>
+
+          <div class="quiz-actions">
+            <button class="secondary-action" type="button" id="prevButton">戻る</button>
+            <button class="primary-action" type="button" id="nextButton">次へ</button>
+          </div>
+        </section>
+
+        <section id="resultsView" class="view results-view hidden" aria-labelledby="resultsTitle">
+          <div class="result-hero">
+            <div>
+              <p class="eyebrow">Result</p>
+              <h2 id="resultsTitle">結果</h2>
+            </div>
+            <div class="score-ring" id="scoreRing">
+              <span id="scoreValue">0</span>
+              <small id="scoreTotal">/ 0</small>
+            </div>
+            <div class="mentor-card" id="mentorCard" aria-live="polite">
+              <div class="mentor-avatar" aria-hidden="true">
+                <span class="mentor-face"></span>
+                <span class="mentor-beard"></span>
+                <span class="harisen"></span>
+              </div>
+              <div>
+                <p class="mentor-label">仙人からの一言</p>
+                <p class="mentor-message" id="mentorMessage"></p>
+              </div>
+            </div>
+            <div class="mentor-card streak-card hidden" id="streakCard" aria-live="polite">
+              <div class="mentor-avatar" aria-hidden="true">
+                <span class="mentor-face"></span>
+                <span class="mentor-beard"></span>
+              </div>
+              <div>
+                <p class="mentor-label">連続学習の節目</p>
+                <p class="mentor-message" id="streakMessage">がんばっておるな。この調子じゃ</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-actions">
+            <button class="primary-action" type="button" id="retryButton">もう一度</button>
+            <button class="secondary-action" type="button" id="newQuizButton">設定に戻る</button>
+          </div>
+
+          <div id="resultList" class="result-list"></div>
+        </section>
+
+        <section id="historyView" class="view history-view hidden" aria-labelledby="historyTitle">
+          <div class="history-toolbar">
+            <div>
+              <p class="eyebrow">History</p>
+              <h2 id="historyTitle">問題別履歴</h2>
+            </div>
+            <div class="history-actions">
+              <button class="primary-action" type="button" id="historyTrainingButton">直前特訓</button>
+              <button class="secondary-action" type="button" id="historyBackButton">設定に戻る</button>
+            </div>
+          </div>
+          <div class="history-stats" id="historyStats"></div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./data/questions.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
