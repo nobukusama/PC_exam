@@ -398,8 +398,22 @@ function mergeHistories(current, incoming) {
   return merged;
 }
 
+// 通常ダウンロード（保存先はブラウザ任せ）でファイルを保存するフォールバック
+function downloadFile(filename, text) {
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 // 学習データ（履歴・解説メモ・学習日）をまとめてファイルに書き出す（端末間で移すため）
-function exportBackup() {
+// 保存先を選べるよう、端末に応じて 共有メニュー / 保存ダイアログ / ダウンロード を使い分ける。
+async function exportBackup() {
   const data = {};
   const history = loadHistory();
   const edits = loadExplanationEdits();
@@ -423,16 +437,47 @@ function exportBackup() {
     exportedAt: new Date().toISOString(),
     data,
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const text = JSON.stringify(payload, null, 2);
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  link.href = url;
-  link.download = `study-backup-${stamp}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const filename = `study-backup-${stamp}.json`;
+
+  // ① iPhone/iPad・スマホ: 共有メニューで保存先を選ぶ（ファイルに保存/AirDrop/メール等）
+  try {
+    if (navigator.canShare) {
+      const file = new File([text], filename, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      }
+    }
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      return; // ユーザーがキャンセル
+    }
+    // それ以外は次の方法へフォールバック
+  }
+
+  // ② PCのChrome/Edge: 「名前を付けて保存」で場所を選ぶ
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return;
+    }
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      return; // ユーザーがキャンセル
+    }
+    // それ以外は次の方法へフォールバック
+  }
+
+  // ③ フォールバック: 通常ダウンロード（ダウンロードフォルダ等）
+  downloadFile(filename, text);
 }
 
 // ファイルから学習データを読み込む（履歴は統合、解説メモ・学習日はマージ）
