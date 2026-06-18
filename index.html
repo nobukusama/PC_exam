@@ -109,6 +109,15 @@
                 <button class="secondary-action" type="button" id="historyButton">履歴を見る</button>
                 <button class="primary-action" type="button" id="mistakeTrainingButton">直前特訓</button>
               </div>
+              <div class="practice-panel">
+                <div>
+                  <strong>解説メモのバックアップ</strong>
+                  <span>自分で編集した解説を端末間で移せます</span>
+                </div>
+                <button class="secondary-action" type="button" id="exportEditsButton">編集を書き出す</button>
+                <button class="secondary-action" type="button" id="importEditsButton">編集を読み込む</button>
+                <input type="file" id="importEditsInput" accept="application/json,.json" hidden />
+              </div>
             </div>
           </div>
         </section>

@@ -28,6 +28,9 @@ const els = {
   historySummary: document.querySelector("#historySummary"),
   historyButton: document.querySelector("#historyButton"),
   mistakeTrainingButton: document.querySelector("#mistakeTrainingButton"),
+  exportEditsButton: document.querySelector("#exportEditsButton"),
+  importEditsButton: document.querySelector("#importEditsButton"),
+  importEditsInput: document.querySelector("#importEditsInput"),
   exitQuizButton: document.querySelector("#exitQuizButton"),
   progressLabel: document.querySelector("#progressLabel"),
   questionOrigin: document.querySelector("#questionOrigin"),
@@ -366,6 +369,64 @@ function saveExplanationEdits(edits) {
   } catch {
     window.alert("解説を保存できませんでした。ブラウザの保存設定を確認してください。");
   }
+}
+
+// 自分で編集した解説をファイルに書き出す（端末間で移すため）
+function exportExplanationEdits() {
+  const edits = loadExplanationEdits();
+  const count = Object.keys(edits).length;
+  if (count === 0) {
+    window.alert("書き出す編集がありません。先に解説を編集して保存してください。");
+    return;
+  }
+  const payload = {
+    type: "painClinicExplanationEdits",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    edits,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  link.href = url;
+  link.download = `explanation-edits-${stamp}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// ファイルから編集を読み込む（既存の編集に上書きマージ）
+function importExplanationEdits(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let incoming = null;
+    try {
+      const data = JSON.parse(String(reader.result));
+      if (data && data.edits && typeof data.edits === "object") {
+        incoming = data.edits;
+      } else if (data && typeof data === "object") {
+        incoming = data;
+      }
+    } catch {
+      window.alert("ファイルを読み込めませんでした。書き出したJSONファイルか確認してください。");
+      return;
+    }
+    if (!incoming || typeof incoming !== "object") {
+      window.alert("ファイルの形式が正しくありません。");
+      return;
+    }
+    const current = loadExplanationEdits();
+    const merged = { ...current, ...incoming };
+    saveExplanationEdits(merged);
+    const added = Object.keys(incoming).length;
+    window.alert(`${added}件の編集を読み込みました。問題を開くと反映されます。`);
+  };
+  reader.onerror = () => {
+    window.alert("ファイルの読み込み中にエラーが発生しました。");
+  };
+  reader.readAsText(file);
 }
 
 function getOfficialExplanation(question) {
@@ -1044,6 +1105,22 @@ els.historyTrainingButton.addEventListener("click", () => {
 els.historyBackButton.addEventListener("click", () => {
   renderHistorySummary();
   setView("setup");
+});
+
+els.exportEditsButton.addEventListener("click", () => {
+  exportExplanationEdits();
+});
+
+els.importEditsButton.addEventListener("click", () => {
+  els.importEditsInput.click();
+});
+
+els.importEditsInput.addEventListener("change", (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (file) {
+    importExplanationEdits(file);
+  }
+  event.target.value = "";
 });
 
 renderSetup();
